@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
@@ -27,8 +33,7 @@ export class WebhookSignatureGuard implements CanActivate {
       throw new UnauthorizedException('Webhook secret not configured');
     }
 
-    const expected =
-      'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
     const a = Buffer.from(signature);
     const b = Buffer.from(expected);

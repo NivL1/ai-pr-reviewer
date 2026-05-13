@@ -49,9 +49,7 @@ export class GithubController {
         headSha: payload.pull_request.head.sha,
         deliveryId,
       })
-      .catch((err) =>
-        this.logger.error(`Review failed for delivery ${deliveryId}`, err.stack),
-      );
+      .catch((err) => this.logger.error(`Review failed for delivery ${deliveryId}`, err.stack));
 
     return { ok: true, deliveryId };
   }

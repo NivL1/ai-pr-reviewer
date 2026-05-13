@@ -46,17 +46,8 @@ export class ReviewerService {
 
     const result = await this.llm.reviewDiff(diff);
 
-    await this.github.postReview(
-      owner,
-      repo,
-      prNumber,
-      headSha,
-      result.summary,
-      result.comments,
-    );
+    await this.github.postReview(owner, repo, prNumber, headSha, result.summary, result.comments);
 
-    this.logger.log(
-      `Posted ${result.comments.length} comments on ${owner}/${repo}#${prNumber}`,
-    );
+    this.logger.log(`Posted ${result.comments.length} comments on ${owner}/${repo}#${prNumber}`);
   }
 }
