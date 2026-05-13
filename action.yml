@@ -1,0 +1,27 @@
+name: "AI PR Reviewer"
+description: "Run an LLM-powered code review on the current pull request."
+author: "Niv Lusky"
+branding:
+  icon: "git-pull-request"
+  color: "purple"
+
+inputs:
+  anthropic-api-key:
+    description: "Anthropic API key."
+    required: true
+  github-token:
+    description: "GitHub token used to post review comments."
+    required: false
+    default: ${{ github.token }}
+  model:
+    description: "LLM model to use."
+    required: false
+    default: "claude-sonnet-4-6"
+  max-diff-lines:
+    description: "Skip review if the PR diff exceeds this line count."
+    required: false
+    default: "2000"
+
+runs:
+  using: "node20"
+  main: "dist/action/index.js"
