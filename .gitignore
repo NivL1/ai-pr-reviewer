@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
+# Build output (keep dist/action/ for the bundled GitHub Action entry point)
+dist/*
+!dist/action
 build/
 *.tsbuildinfo
 
