@@ -54,6 +54,10 @@ See [`docs/architecture.md`](./docs/architecture.md) for the long version and [`
 - Skips generated files, lockfiles, and sourcemaps by default (configurable ignore patterns).
 - Health and readiness endpoints suitable for Kubernetes probes.
 
+### Example review comment
+
+![Example inline review comment from Claude](./docs/example-review-comment.png)
+
 ## Getting started
 
 ### Prerequisites
