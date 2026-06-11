@@ -4,7 +4,7 @@ This document explains how the service is structured and why.
 
 ## Components
 
-### 1. W    ebhook controller (`src/github/github.controller.ts`)
+### 1. Webhook controller (`src/github/github.controller.ts`)
 
 The only HTTP entry point. Accepts GitHub webhook deliveries at `POST /webhooks/github`. Three things happen here:
 
