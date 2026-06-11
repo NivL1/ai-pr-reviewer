@@ -33,7 +33,8 @@ export class ReviewerService {
     const { owner, repo, prNumber, headSha, deliveryId } = req;
     this.logger.log(`Reviewing ${owner}/${repo}#${prNumber} (${deliveryId})`);
 
-    const diff = await this.github.fetchPullRequestDiff(owner, repo, prNumber);
+    const rawDiff = await this.github.fetchPullRequestDiff(owner, repo, prNumber);
+    const diff = this.filterDiff(rawDiff);
     const lineCount = diff.split('\n').length;
     const max = this.config.get<number>('reviewer.maxDiffLines', { infer: true }) ?? 2000;
 
@@ -58,5 +59,17 @@ export class ReviewerService {
     this.logger.log(
       `Posted ${result.comments.length} comments on ${owner}/${repo}#${prNumber}`,
     );
+  }
+
+  private filterDiff(diff: string): string {
+    const IGNORED = [/^dist\//, /^build\//, /package-lock\.json$/, /\.map$/];
+    const files = diff.split(/(?=^diff --git )/m);
+    return files
+      .filter((chunk) => {
+        const header = chunk.match(/^diff --git a\/(\S+)/);
+        if (!header) return true;
+        return !IGNORED.some((pattern) => pattern.test(header[1]));
+      })
+      .join('');
   }
 }
