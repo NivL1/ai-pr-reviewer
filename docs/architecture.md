@@ -8,7 +8,7 @@ This document explains how the service is structured and why.
 
 The only HTTP entry point. Accepts GitHub webhook deliveries at `POST /webhooks/github`. Three things happen here:
 
-1. `WebhookSignatureGuard` runs first and verifies `X-Hub-Signature-256` against the raw body using a timing-safe HMAC comparison.
+1. `WebhookSignatureGuard` runs first and verifies `X-Hub-Signature-256` against the raw body using a timing-safe HMAC comparison. If `GITHUB_WEBHOOK_SECRET` is not set, the guard throws `UnauthorizedException` — it never silently skips validation.
 2. The controller filters events: it only acts on `pull_request` events with action `opened`, `synchronize`, or `reopened`, and skips drafts.
 3. The actual review work is fired off asynchronously and the controller returns `202 Accepted` immediately, so GitHub doesn't time out and retry.
 
@@ -16,12 +16,23 @@ The only HTTP entry point. Accepts GitHub webhook deliveries at `POST /webhooks/
 
 Pure orchestration — no HTTP and no model calls of its own:
 
-- Asks `GithubService` for the PR diff
-- Enforces the `MAX_DIFF_LINES` guardrail
-- Asks `LlmService` for review output
-- Hands the result back to `GithubService` to post a single review
+1. Asks `GithubService` for the raw PR diff
+2. Strips generated/irrelevant files via `filterDiff()` (see below)
+3. Enforces the `MAX_DIFF_LINES` guardrail on the filtered diff
+4. Asks `LlmService` for review output
+5. Hands the result back to `GithubService` to post a single review
 
 This separation makes the orchestration logic trivial to unit test (see `test/reviewer.service.spec.ts`).
+
+#### Diff filtering
+
+`filterDiff()` splits the unified diff on `diff --git` boundaries and drops any file chunk whose path matches an ignore pattern:
+
+```
+dist/**, build/**, package-lock.json, *.map
+```
+
+This prevents generated and lock files from consuming token budget. Extend the `IGNORED` array in `reviewer.service.ts` to add more patterns.
 
 ### 3. LLM service (`src/llm/llm.service.ts`)
 
@@ -41,8 +52,21 @@ Thin Octokit wrapper. Two responsibilities: fetch the unified diff for a PR, and
 
 The same orchestration runs in two shapes:
 
-- **Service mode** (default) — `npm run start` boots the NestJS HTTP server and listens for webhooks. Suitable for self-hosting.
-- **Action mode** — `scripts/run-action.ts` boots NestJS as an `ApplicationContext` (no HTTP listener), runs one review, and exits. This is what `action.yml` invokes inside a GitHub Actions runner.
+### Service mode
+
+`npm run start` boots the NestJS HTTP server and listens for webhooks. Suitable for self-hosting behind any reverse proxy. Requires all env vars including `GITHUB_WEBHOOK_SECRET`.
+
+### Action mode
+
+`scripts/run-action.ts` boots NestJS as an `ApplicationContext` (no HTTP listener), runs one review against the PR identified by `GITHUB_REPOSITORY`, `PR_NUMBER`, and `GITHUB_SHA`, then exits. This is what `action.yml` invokes inside a GitHub Actions runner.
+
+The action entry point is bundled into a single file using [`ncc`](https://github.com/vercel/ncc):
+
+```
+npm run build:action   # outputs dist/action/index.js
+```
+
+`dist/action/` is committed to the repo (excluded from the normal `dist/` gitignore rule) so GitHub Actions runners can execute it without an `npm install` step. **Rebuild and commit `dist/action/index.js` whenever `scripts/run-action.ts` or any `src/` file it depends on changes.**
 
 ## Things that are intentionally not here
 

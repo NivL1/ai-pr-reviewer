@@ -26,8 +26,7 @@ export class LlmService implements OnModuleInit {
     this.client = new Anthropic({
       apiKey: this.config.get<string>('anthropic.apiKey', { infer: true }),
     });
-    this.model =
-      this.config.get<string>('anthropic.model', { infer: true }) ?? 'claude-sonnet-4-6';
+    this.model = this.config.get<string>('anthropic.model', { infer: true }) ?? 'claude-sonnet-4-6';
   }
 
   async reviewDiff(diff: string): Promise<LlmReviewResult> {

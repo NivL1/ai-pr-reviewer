@@ -49,14 +49,9 @@ describe('ReviewerService', () => {
       deliveryId: 'd1',
     });
 
-    expect(github.postReview).toHaveBeenCalledWith(
-      'me',
-      'repo',
-      1,
-      'abc',
-      'LGTM with one note.',
-      [{ path: 'src/foo.ts', line: 12, body: 'Nullable, please guard.' }],
-    );
+    expect(github.postReview).toHaveBeenCalledWith('me', 'repo', 1, 'abc', 'LGTM with one note.', [
+      { path: 'src/foo.ts', line: 12, body: 'Nullable, please guard.' },
+    ]);
   });
 
   it('skips diffs above the configured size limit', async () => {
