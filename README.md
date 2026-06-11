@@ -44,14 +44,14 @@ It exists as a reference for how I structure small AI-powered backends in produc
    └──────────────────┘       └──────────────────┘
 ```
 
-See [`docs/architecture.md`](./docs/architecture.md) for the long version.
+See [`docs/architecture.md`](./docs/architecture.md) for the long version and [`docs/runbook.md`](./docs/runbook.md) for setup and operations.
 
 ## Features
 
 - Inline code review comments on changed lines (not just a top-level summary).
 - Configurable rules per repo via `.ai-review.yml` (style, focus areas, ignored paths).
 - Cost guardrails: max diff size, file allow/deny lists, model pinning.
-- Skips generated files, lockfiles, and binary blobs by default.
+- Skips generated files, lockfiles, and sourcemaps by default (configurable ignore patterns).
 - Health and readiness endpoints suitable for Kubernetes probes.
 
 ## Getting started
@@ -83,19 +83,32 @@ docker compose up --build
 
 ### As a GitHub Action
 
-Drop this into `.github/workflows/review.yml` in any repo:
+Drop this into `.github/workflows/pr-review.yml` in any repo:
 
 ```yaml
-name: AI Review
-on: [pull_request]
+name: AI PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
 jobs:
   review:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    permissions:
+      pull-requests: write
     steps:
-      - uses: NivL1/ai-pr-reviewer@v1
-        with:
-          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: actions/checkout@v4
+      - name: Run AI review
+        uses: NivL1/ai-pr-reviewer@master
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
 ```
+
+Add `ANTHROPIC_API_KEY` to your repo's secrets (**Settings → Secrets and variables → Actions**) and you're done. See [`docs/runbook.md`](./docs/runbook.md) for the full setup guide.
 
 ## Configuration
 
@@ -139,7 +152,7 @@ Dockerfile              # multi-stage build
 
 ## Roadmap
 
-- [ ] Anthropic provider — first LLM implementation
+- [x] Anthropic provider — first LLM implementation
 - [ ] OpenAI provider behind the same interface
 - [ ] Per-repo `.ai-review.yml` parsing
 - [ ] Diff chunking with overlap for large PRs
