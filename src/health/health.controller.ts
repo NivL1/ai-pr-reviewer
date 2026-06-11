@@ -22,3 +22,5 @@ export class HealthController {
     return this.health.check([]);
   }
 }
+
+// placeholder for future readiness checks

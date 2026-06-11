@@ -11,7 +11,8 @@ import { AppModule } from '../src/app.module';
 import { ReviewerService } from '../src/reviewer/reviewer.service';
 
 async function main(): Promise<void> {
-  const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: true });
+  console.log('[Action] Starting ai-pr-reviewer action...');
+  const app = await NestFactory.createApplicationContext(AppModule, { bufferLogs: false });
   const reviewer = app.get(ReviewerService);
 
   const repoFull = process.env.GITHUB_REPOSITORY;
@@ -37,6 +38,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  Logger.error(err.stack ?? String(err), 'Action');
+  console.error('[Action] Fatal error:', err.stack ?? String(err));
   process.exit(1);
 });

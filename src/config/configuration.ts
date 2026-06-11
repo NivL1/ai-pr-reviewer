@@ -10,9 +10,10 @@ export class EnvVars {
   @MinLength(10)
   GITHUB_TOKEN!: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(8)
-  GITHUB_WEBHOOK_SECRET!: string;
+  GITHUB_WEBHOOK_SECRET?: string;
 
   @IsOptional()
   @IsString()
