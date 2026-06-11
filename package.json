@@ -22,7 +22,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "action": "ts-node scripts/run-action.ts"
+    "action": "ts-node scripts/run-action.ts",
+    "build:action": "ncc build scripts/run-action.ts -o dist/action --source-map --license licenses.txt"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
@@ -48,6 +49,7 @@
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
+    "@vercel/ncc": "^0.44.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
