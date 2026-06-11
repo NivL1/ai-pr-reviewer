@@ -65,6 +65,7 @@ export class ReviewerService {
     const IGNORED = [/^dist\//, /^build\//, /package-lock\.json$/, /\.map$/];
     const files = diff.split(/(?=^diff --git )/m);
     return files
+      .filter((chunk) => chunk.trim().length > 0)
       .filter((chunk) => {
         const header = chunk.match(/^diff --git a\/(\S+)/);
         if (!header) return true;
