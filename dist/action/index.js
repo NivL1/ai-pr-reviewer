@@ -88597,6 +88597,7 @@ let GithubService = GithubService_1 = class GithubService {
         if (ours.length === 0) {
             return null;
         }
+        ours.sort((a, b) => a.id - b.id);
         return ours[ours.length - 1].commit_id ?? null;
     }
     async postReview(owner, repo, prNumber, headSha, summary, comments) {
