@@ -1,6 +1,6 @@
 {
   "name": "ai-pr-reviewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "NestJS service + GitHub Action that runs LLM-powered code review on pull requests.",
   "author": "Niv Lusky <nivmail4@gmail.com>",
   "license": "MIT",

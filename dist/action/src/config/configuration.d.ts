@@ -1,7 +1,7 @@
 export declare class EnvVars {
     ANTHROPIC_API_KEY: string;
     GITHUB_TOKEN: string;
-    GITHUB_WEBHOOK_SECRET: string;
+    GITHUB_WEBHOOK_SECRET?: string;
     LLM_MODEL?: string;
     MAX_DIFF_LINES?: number;
     PORT?: number;
