@@ -88556,6 +88556,7 @@ exports.GithubService = void 0;
 const common_1 = __nccwpck_require__(87027);
 const config_1 = __nccwpck_require__(35192);
 const rest_1 = __nccwpck_require__(39380);
+const REVIEW_MARKER = '<!-- ai-pr-reviewer:review -->';
 let GithubService = GithubService_1 = class GithubService {
     config;
     logger = new common_1.Logger(GithubService_1.name);
@@ -88576,6 +88577,28 @@ let GithubService = GithubService_1 = class GithubService {
         });
         return data;
     }
+    async fetchDiffSince(owner, repo, base, head) {
+        const { data } = await this.octokit.repos.compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${base}...${head}`,
+            mediaType: { format: 'diff' },
+        });
+        return data;
+    }
+    async findLastReviewedCommit(owner, repo, prNumber) {
+        const reviews = await this.octokit.paginate(this.octokit.pulls.listReviews, {
+            owner,
+            repo,
+            pull_number: prNumber,
+            per_page: 100,
+        });
+        const ours = reviews.filter((review) => review.body?.includes(REVIEW_MARKER));
+        if (ours.length === 0) {
+            return null;
+        }
+        return ours[ours.length - 1].commit_id ?? null;
+    }
     async postReview(owner, repo, prNumber, headSha, summary, comments) {
         if (comments.length === 0) {
             this.logger.log(`No comments to post on ${owner}/${repo}#${prNumber}`);
@@ -88586,7 +88609,7 @@ let GithubService = GithubService_1 = class GithubService {
             repo,
             pull_number: prNumber,
             commit_id: headSha,
-            body: summary,
+            body: `${REVIEW_MARKER}\n${summary}`,
             event: 'COMMENT',
             comments: comments.map((c) => ({
                 path: c.path,
@@ -88843,8 +88866,7 @@ let LlmService = LlmService_1 = class LlmService {
         this.client = new sdk_1.default({
             apiKey: this.config.get('anthropic.apiKey', { infer: true }),
         });
-        this.model =
-            this.config.get('anthropic.model', { infer: true }) ?? 'claude-sonnet-4-6';
+        this.model = this.config.get('anthropic.model', { infer: true }) ?? 'claude-sonnet-4-6';
     }
     async reviewDiff(diff) {
         const response = await this.client.messages.create({
@@ -88991,8 +89013,12 @@ let ReviewerService = ReviewerService_1 = class ReviewerService {
     async reviewPullRequest(req) {
         const { owner, repo, prNumber, headSha, deliveryId } = req;
         this.logger.log(`Reviewing ${owner}/${repo}#${prNumber} (${deliveryId})`);
-        const rawDiff = await this.github.fetchPullRequestDiff(owner, repo, prNumber);
+        const rawDiff = await this.fetchDiff(owner, repo, prNumber, headSha);
         const diff = this.filterDiff(rawDiff);
+        if (diff.trim().length === 0) {
+            this.logger.log(`No changes to review on ${owner}/${repo}#${prNumber}, skipping`);
+            return;
+        }
         const lineCount = diff.split('\n').length;
         const max = this.config.get('reviewer.maxDiffLines', { infer: true }) ?? 2000;
         if (lineCount > max) {
@@ -89002,6 +89028,23 @@ let ReviewerService = ReviewerService_1 = class ReviewerService {
         const result = await this.llm.reviewDiff(diff);
         await this.github.postReview(owner, repo, prNumber, headSha, result.summary, result.comments);
         this.logger.log(`Posted ${result.comments.length} comments on ${owner}/${repo}#${prNumber}`);
+    }
+    async fetchDiff(owner, repo, prNumber, headSha) {
+        const lastReviewedSha = await this.github.findLastReviewedCommit(owner, repo, prNumber);
+        if (!lastReviewedSha) {
+            return this.github.fetchPullRequestDiff(owner, repo, prNumber);
+        }
+        if (lastReviewedSha === headSha) {
+            return '';
+        }
+        try {
+            return await this.github.fetchDiffSince(owner, repo, lastReviewedSha, headSha);
+        }
+        catch (err) {
+            this.logger.warn(`Incremental diff from ${lastReviewedSha} to ${headSha} failed ` +
+                `(${err.message}), falling back to full PR diff`);
+            return this.github.fetchPullRequestDiff(owner, repo, prNumber);
+        }
     }
     filterDiff(diff) {
         const IGNORED = [/^dist\//, /^build\//, /package-lock\.json$/, /\.map$/];
