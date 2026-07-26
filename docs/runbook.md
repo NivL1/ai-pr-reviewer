@@ -138,3 +138,5 @@ Set `MAX_DIFF_LINES` in your env. Note this affects token usage and cost directl
 **`GITHUB_WEBHOOK_SECRET` validation error on startup (Action mode)** — The secret is optional in Action mode. Ensure you're on a version after the `@IsOptional()` fix in `src/config/configuration.ts`.
 
 **Review posted but all comments are on wrong lines** — The `line` field in the LLM response refers to lines in the diff, not the file. If this happens, check the prompt in `src/llm/prompts.ts` and ensure the model is returning line numbers relative to the new file.
+
+**Same comments keep getting posted on every push** — Reviews are matched to their source commit via a hidden `<!-- ai-pr-reviewer:review -->` marker in the review body (see `GithubService.findLastReviewedCommit`). If a full re-review happens on every push instead of an incremental one, check that nothing (a bot, a GitHub App setting) is stripping HTML comments from review bodies, and that the previous review is still visible via `GET /repos/{owner}/{repo}/pulls/{pr}/reviews` — a force-push that makes the old commit unreachable will also fall back to a full diff by design.

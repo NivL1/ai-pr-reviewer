@@ -22,8 +22,9 @@ export class ReviewerService {
   ) {}
 
   /**
-   * End-to-end: fetch the PR diff, ask the LLM for review comments, post them
-   * as a single GitHub review.
+   * End-to-end: fetch the diff since our last review on this PR (or the
+   * full PR diff, the first time), ask the LLM for review comments, post
+   * them as a single GitHub review.
    *
    * TODO(milestone-1): smart diff chunking with overlap for large PRs.
    * TODO(milestone-1): per-repo .ai-review.yml support (focus areas, ignores).
@@ -33,8 +34,14 @@ export class ReviewerService {
     const { owner, repo, prNumber, headSha, deliveryId } = req;
     this.logger.log(`Reviewing ${owner}/${repo}#${prNumber} (${deliveryId})`);
 
-    const rawDiff = await this.github.fetchPullRequestDiff(owner, repo, prNumber);
+    const rawDiff = await this.fetchDiff(owner, repo, prNumber, headSha);
     const diff = this.filterDiff(rawDiff);
+
+    if (diff.trim().length === 0) {
+      this.logger.log(`No changes to review on ${owner}/${repo}#${prNumber}, skipping`);
+      return;
+    }
+
     const lineCount = diff.split('\n').length;
     const max = this.config.get<number>('reviewer.maxDiffLines', { infer: true }) ?? 2000;
 
@@ -50,6 +57,41 @@ export class ReviewerService {
     await this.github.postReview(owner, repo, prNumber, headSha, result.summary, result.comments);
 
     this.logger.log(`Posted ${result.comments.length} comments on ${owner}/${repo}#${prNumber}`);
+  }
+
+  /**
+   * Diffs only the changes since our last review on this PR (identified by
+   * a hidden marker in past review bodies — see GithubService), so
+   * unmodified code doesn't get re-flagged on every push. Falls back to the
+   * full base...head diff if we haven't reviewed this PR before, or if the
+   * incremental compare fails (e.g. after a force-push that leaves the old
+   * commit unreachable).
+   */
+  private async fetchDiff(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    headSha: string,
+  ): Promise<string> {
+    const lastReviewedSha = await this.github.findLastReviewedCommit(owner, repo, prNumber);
+
+    if (!lastReviewedSha) {
+      return this.github.fetchPullRequestDiff(owner, repo, prNumber);
+    }
+
+    if (lastReviewedSha === headSha) {
+      return '';
+    }
+
+    try {
+      return await this.github.fetchDiffSince(owner, repo, lastReviewedSha, headSha);
+    } catch (err) {
+      this.logger.warn(
+        `Incremental diff from ${lastReviewedSha} to ${headSha} failed ` +
+          `(${(err as Error).message}), falling back to full PR diff`,
+      );
+      return this.github.fetchPullRequestDiff(owner, repo, prNumber);
+    }
   }
 
   private filterDiff(diff: string): string {

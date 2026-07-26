@@ -12,6 +12,8 @@ describe('ReviewerService', () => {
   beforeEach(async () => {
     github = {
       fetchPullRequestDiff: jest.fn(),
+      fetchDiffSince: jest.fn(),
+      findLastReviewedCommit: jest.fn().mockResolvedValue(null),
       postReview: jest.fn(),
     } as unknown as jest.Mocked<GithubService>;
 
@@ -67,5 +69,57 @@ describe('ReviewerService', () => {
 
     expect(llm.reviewDiff).not.toHaveBeenCalled();
     expect(github.postReview).not.toHaveBeenCalled();
+  });
+
+  it('diffs only since our last review, when we have reviewed this PR before', async () => {
+    github.findLastReviewedCommit.mockResolvedValue('sha-old');
+    github.fetchDiffSince.mockResolvedValue('diff line\n'.repeat(10));
+    llm.reviewDiff.mockResolvedValue({ summary: 'ok', comments: [] });
+
+    await reviewer.reviewPullRequest({
+      owner: 'me',
+      repo: 'repo',
+      prNumber: 3,
+      headSha: 'sha-new',
+      deliveryId: 'd3',
+    });
+
+    expect(github.fetchDiffSince).toHaveBeenCalledWith('me', 'repo', 'sha-old', 'sha-new');
+    expect(github.fetchPullRequestDiff).not.toHaveBeenCalled();
+  });
+
+  it('skips entirely when the head commit was already reviewed', async () => {
+    github.findLastReviewedCommit.mockResolvedValue('sha-same');
+
+    await reviewer.reviewPullRequest({
+      owner: 'me',
+      repo: 'repo',
+      prNumber: 4,
+      headSha: 'sha-same',
+      deliveryId: 'd4',
+    });
+
+    expect(github.fetchDiffSince).not.toHaveBeenCalled();
+    expect(github.fetchPullRequestDiff).not.toHaveBeenCalled();
+    expect(llm.reviewDiff).not.toHaveBeenCalled();
+    expect(github.postReview).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the full PR diff when the incremental compare fails', async () => {
+    github.findLastReviewedCommit.mockResolvedValue('sha-unreachable');
+    github.fetchDiffSince.mockRejectedValue(new Error('404 Not Found'));
+    github.fetchPullRequestDiff.mockResolvedValue('diff line\n'.repeat(10));
+    llm.reviewDiff.mockResolvedValue({ summary: 'ok', comments: [] });
+
+    await reviewer.reviewPullRequest({
+      owner: 'me',
+      repo: 'repo',
+      prNumber: 5,
+      headSha: 'sha-new',
+      deliveryId: 'd5',
+    });
+
+    expect(github.fetchPullRequestDiff).toHaveBeenCalledWith('me', 'repo', 5);
+    expect(llm.reviewDiff).toHaveBeenCalled();
   });
 });

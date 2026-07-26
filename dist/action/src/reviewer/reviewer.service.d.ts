@@ -15,4 +15,6 @@ export declare class ReviewerService {
     private readonly logger;
     constructor(github: GithubService, llm: LlmService, config: ConfigService);
     reviewPullRequest(req: ReviewRequest): Promise<void>;
+    private fetchDiff;
+    private filterDiff;
 }

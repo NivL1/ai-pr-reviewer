@@ -16,13 +16,24 @@ The only HTTP entry point. Accepts GitHub webhook deliveries at `POST /webhooks/
 
 Pure orchestration — no HTTP and no model calls of its own:
 
-1. Asks `GithubService` for the raw PR diff
+1. Asks `GithubService` for the diff since our last review on this PR (see below), or the full PR diff the first time
 2. Strips generated/irrelevant files via `filterDiff()` (see below)
 3. Enforces the `MAX_DIFF_LINES` guardrail on the filtered diff
 4. Asks `LlmService` for review output
 5. Hands the result back to `GithubService` to post a single review
 
 This separation makes the orchestration logic trivial to unit test (see `test/reviewer.service.spec.ts`).
+
+#### Incremental re-review
+
+Every push to an open PR re-triggers a review. Diffing base...head on every run would mean re-showing the LLM code it already reviewed, which produces the same comments again — including ones already replied to or fixed.
+
+Instead, `GithubService.postReview` stamps a hidden `<!-- ai-pr-reviewer:review -->` marker into every review body it posts. Before reviewing, `ReviewerService` calls `GithubService.findLastReviewedCommit`, which lists past reviews on the PR, finds the most recent one carrying our marker, and returns the commit it was posted against. If found, we diff from that commit to the new head instead of from the PR base — so only genuinely new changes get reviewed. No database needed: GitHub's own review history is the source of truth.
+
+Edge cases:
+- No prior review from us → full base...head diff (first review on the PR).
+- Last-reviewed commit equals the new head → nothing changed since we last looked (e.g. a redundant webhook delivery); skip without calling the LLM.
+- Incremental compare fails (e.g. the old commit is unreachable after a force-push) → fall back to the full base...head diff rather than erroring out.
 
 #### Diff filtering
 
@@ -42,7 +53,7 @@ When a second provider is added (OpenAI, a local model), this becomes an abstrac
 
 ### 4. GitHub service (`src/github/github.service.ts`)
 
-Thin Octokit wrapper. Two responsibilities: fetch the unified diff for a PR, and post a review with inline comments. Posting a single review (rather than N separate comments) keeps PR pages readable.
+Thin Octokit wrapper: fetch a full or incremental PR diff, find the commit our last review was posted against, and post a review with inline comments. Posting a single review (rather than N separate comments) keeps PR pages readable.
 
 ### 5. Health module (`src/health/health.controller.ts`)
 
