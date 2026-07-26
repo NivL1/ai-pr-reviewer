@@ -71,7 +71,9 @@ export class GithubService implements OnModuleInit {
       return null;
     }
 
-    // listReviews returns reviews oldest-first; the last one is the most recent.
+    // Sort by id (monotonically increasing, assigned at creation) rather
+    // than trusting listReviews' response order to stay oldest-first.
+    ours.sort((a, b) => a.id - b.id);
     return ours[ours.length - 1].commit_id ?? null;
   }
 
