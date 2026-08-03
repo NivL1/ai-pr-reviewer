@@ -2,6 +2,7 @@
 
 > A NestJS service + GitHub Action that runs LLM-powered code review on pull requests. Designed as a small, production-shaped backend you can self-host — not just a wrapper script.
 
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-NivL1%20AI%20PR%20Reviewer-6f42c1?logo=github&logoColor=white)](https://github.com/marketplace/actions/nivl1-ai-pr-reviewer)
 [![CI](https://github.com/NivL1/ai-pr-reviewer/actions/workflows/ci.yml/badge.svg)](https://github.com/NivL1/ai-pr-reviewer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org/)
