@@ -1,4 +1,4 @@
-name: "AI PR Reviewer"
+name: "NivL1 AI PR Reviewer"
 description: "Run an LLM-powered code review on the current pull request."
 author: "Niv Lusky"
 branding:
